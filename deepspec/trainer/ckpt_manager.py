@@ -104,10 +104,10 @@ def load_training_state(
 
     saved_rank = int(checkpoint["global_rank"])
     assert saved_rank == int(global_rank)
-    
+
     saved_world_size = int(checkpoint["world_size"])
     assert saved_world_size == int(world_size)
-    
+
     saved_local_batch_size = int(checkpoint["local_batch_size"])
     assert saved_local_batch_size == int(local_batch_size)
 
