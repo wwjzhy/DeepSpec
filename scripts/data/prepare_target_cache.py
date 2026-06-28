@@ -46,6 +46,27 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 torch.set_float32_matmul_precision("high")
 
 
+def _is_npu_available():
+    try:
+        import torch_npu  # noqa: F401
+        return torch.npu.is_available()
+    except Exception:
+        return False
+
+
+def _device_count():
+    if _is_npu_available():
+        return torch.npu.device_count()
+    return torch.cuda.device_count()
+
+
+def _empty_cache():
+    if _is_npu_available():
+        torch.npu.empty_cache()
+    elif torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 @dataclass(frozen=True)
 class TargetForwardResult:
     target_hidden_states: torch.Tensor
@@ -254,7 +275,7 @@ def main(local_rank: int):
     target_model = AutoModel.from_pretrained(
         config.model.target_model_name_or_path,
         dtype=torch.bfloat16,
-        attn_implementation="sdpa",
+        attn_implementation="eager",
     ).to(device=device).eval()
     target_hidden_size = _get_target_hidden_size(target_model)
     train_collator = ConversationCollator(
@@ -335,7 +356,7 @@ def main(local_rank: int):
     finally:
         writer.close()
     del target_model
-    torch.cuda.empty_cache()
+    _empty_cache()
     dataset.close()
     summary = LocalCacheWriteSummary(
         global_rank=global_rank,
@@ -397,6 +418,8 @@ def main(local_rank: int):
 
 if __name__ == "__main__":
     if os.path.exists(".git"):
-        print(f"git status:", "\n\n".join(get_git_sha(detail_info=True)))
-        print("git diff:", get_git_diff())
-    torch.multiprocessing.spawn(main, nprocs=torch.cuda.device_count())
+        try:
+            print(f"git sha:", get_git_sha())
+        except Exception:
+            pass
+    torch.multiprocessing.spawn(main, nprocs=_device_count())

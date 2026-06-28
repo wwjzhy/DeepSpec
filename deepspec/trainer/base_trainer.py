@@ -52,6 +52,14 @@ _HYBRID_STRATEGIES = (
 )
 
 
+def _is_npu_available():
+    try:
+        import torch_npu  # noqa: F401
+        return torch.npu.is_available()
+    except Exception:
+        return False
+
+
 def _build_fsdp_kwargs(
     *, sharding_strategy_name: str, precision_dtype, world_size: int
 ) -> dict:
@@ -65,9 +73,14 @@ def _build_fsdp_kwargs(
         sharding_strategy=sharding_strategy,
     )
     if sharding_strategy in _HYBRID_STRATEGIES:
-        devices_per_node = torch.cuda.device_count()
+        if _is_npu_available():
+            devices_per_node = torch.npu.device_count()
+            device_type = "npu"
+        else:
+            devices_per_node = torch.cuda.device_count()
+            device_type = "cuda"
         fsdp_kwargs["device_mesh"] = init_device_mesh(
-            "cuda",
+            device_type,
             (world_size // devices_per_node, devices_per_node),
             mesh_dim_names=("replicate", "shard"),
         )
@@ -390,7 +403,14 @@ class BaseTrainer:
                     grad_norm=grad_norm.item(),
                 )
 
-                if self.global_step % int(self.args.logging.checkpointing_steps) == 0:
+                should_checkpoint = (
+                    self.global_step % int(self.args.logging.checkpointing_steps) == 0
+                    or (
+                        self.global_step % self.steps_per_epoch == 0
+                        and self.global_step < self.max_train_steps
+                    )
+                )
+                if should_checkpoint:
                     self.save_and_eval_checkpoint()
 
                 if self.suspend_controller.requested():

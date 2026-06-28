@@ -21,7 +21,14 @@ def seed_all(seed):
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    try:
+        import torch_npu  # noqa: F401
+        torch.npu.manual_seed_all(seed)
+        return
+    except Exception:
+        pass
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 def get_git_sha(detail_info=False):
     import subprocess

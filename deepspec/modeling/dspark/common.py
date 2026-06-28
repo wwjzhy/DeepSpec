@@ -82,6 +82,7 @@ def create_dspark_attention_mask(
     seq_len: int,
     block_size: int,
     device: torch.device,
+    use_block_mask: bool = True,
 ):
     def dspark_mask_mod(b, h, q_idx, kv_idx):
         del h
@@ -96,14 +97,42 @@ def create_dspark_attention_mask(
         return (mask_context | mask_draft) & is_valid_block
 
     bsz, num_blocks = anchor_positions.shape
-    return create_block_mask(
-        dspark_mask_mod,
-        B=bsz,
-        H=None,
-        Q_LEN=num_blocks * block_size,
-        KV_LEN=seq_len + num_blocks * block_size,
-        device=device,
-    )
+    q_len = num_blocks * block_size
+    kv_len = seq_len + num_blocks * block_size
+    if use_block_mask:
+        return create_block_mask(
+            dspark_mask_mod,
+            B=bsz,
+            H=None,
+            Q_LEN=q_len,
+            KV_LEN=kv_len,
+            device=device,
+        )
+    # Eager / non-flex path: materialize a 4D additive mask (bool -> 0/-inf).
+    # attn pattern: (mask_context | mask_draft) & is_valid_block
+    q_idx = torch.arange(q_len, device=device).view(1, 1, q_len, 1)
+    kv_idx = torch.arange(kv_len, device=device).view(1, 1, 1, kv_len)
+    q_block_id = q_idx // block_size  # (1,1,q_len,1)
+    # gather anchor_pos per q_block_id: (bsz,1,q_len,1)
+    anchor_pos_q = torch.gather(
+        anchor_positions, dim=1, index=q_block_id.view(bsz, -1)
+    ).view(bsz, 1, q_len, 1)
+    is_context = kv_idx < seq_len
+    mask_context = is_context & (kv_idx < anchor_pos_q)
+    is_draft = kv_idx >= seq_len
+    kv_block_id = (kv_idx - seq_len) // block_size
+    mask_draft = is_draft & (q_block_id == kv_block_id)
+    # is_valid_block per q_block_id -> (bsz,1,q_len,1)
+    is_valid_block_q = torch.gather(
+        block_keep_mask, dim=1, index=q_block_id.view(bsz, -1)
+    ).view(bsz, 1, q_len, 1)
+    keep = (mask_context | mask_draft) & is_valid_block_q  # bool (bsz,1,q_len,kv_len)
+    # Convert to additive mask: 0 where keep, -inf elsewhere. eager_attention_forward
+    # does `attn_weights + attention_mask`, so use min dtype-safe value.
+    neg_inf = torch.finfo(torch.float32).min
+    additive = torch.zeros(bsz, 1, q_len, kv_len, dtype=torch.float32, device=device)
+    additive = additive.masked_fill(~keep, neg_inf)
+    return additive
 
 
 def build_anchor_candidate_mask(
