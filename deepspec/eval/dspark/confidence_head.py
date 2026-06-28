@@ -92,6 +92,10 @@ class PerPositionConfidenceMetrics:
         self.brier_num[:pos_count].add_(weights * (probs - targets).pow(2))
 
     def all_reduce(self) -> None:
+        # NPU hccl does not support float64 all_reduce (ERR02007). On NPU,
+        # cast float64 tensors to float32 for the reduction and restore the
+        # original dtype afterwards. GPU/nccl supports float64 natively.
+        need_f32_cast = self._on_npu()
         for tensor in (
             self.coarse_count,
             self.coarse_pred,
@@ -100,7 +104,20 @@ class PerPositionConfidenceMetrics:
             self.fine_neg,
             self.brier_num,
         ):
-            dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+            if need_f32_cast and tensor.dtype is torch.float64:
+                reduced = tensor.to(torch.float32)
+                dist.all_reduce(reduced, op=dist.ReduceOp.SUM)
+                tensor.copy_(reduced.to(torch.float64))
+            else:
+                dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+
+    @staticmethod
+    def _on_npu() -> bool:
+        try:
+            import torch_npu  # noqa: F401
+            return torch.npu.is_available()
+        except Exception:
+            return False
 
     @staticmethod
     def _auroc_from_hist(pos_hist: torch.Tensor, neg_hist: torch.Tensor) -> float:

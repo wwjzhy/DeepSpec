@@ -9,18 +9,47 @@ import torch.distributed as dist
 from torch.utils.data import Sampler
 
 
+def _is_npu_available():
+    try:
+        import torch_npu  # noqa: F401
+        return torch.npu.is_available()
+    except Exception:
+        return False
+
+
+def _device_backend_info():
+    """Return (device_module, device_count_fn, set_device_fn, current_device_fn, backend)."""
+    if _is_npu_available():
+        return (
+            torch.npu,
+            torch.npu.device_count,
+            torch.npu.set_device,
+            torch.npu.current_device,
+            "hccl",
+        )
+    return (
+        torch.cuda,
+        torch.cuda.device_count,
+        torch.cuda.set_device,
+        torch.cuda.current_device,
+        "nccl",
+    )
+
+
 def init_dist(local_rank: int, timeout_minutes: int = 60):
-    local_world_size = torch.cuda.device_count()
+    dev_mod, device_count, set_device, _current_device, backend = _device_backend_info()
+    local_world_size = device_count()
     node_rank = int(os.environ["RANK"])
     node_world_size = int(os.environ["WORLD_SIZE"])
     rank = node_rank * local_world_size + local_rank
     world_size = node_world_size * local_world_size
     init_method = f"tcp://{os.environ['MASTER_ADDR']}:{os.environ['MASTER_PORT']}"
-    torch.cuda.set_device(local_rank)
-    device = torch.device("cuda", local_rank)
+    set_device(local_rank)
+    device_type = "npu" if _is_npu_available() else "cuda"
+    device = torch.device(device_type, local_rank)
 
     dist.init_process_group(
-        backend="nccl",
+        backend=backend,
         init_method=init_method,
         rank=rank,
         world_size=world_size,
@@ -35,7 +64,8 @@ def is_global_main_process():
 
 
 def is_local_main_process():
-    return torch.cuda.current_device() == 0
+    _dev_mod, _dc, _sd, current_device, _be = _device_backend_info()
+    return current_device() == 0
 
 
 def print_on_global_main(*args, **kwargs):
