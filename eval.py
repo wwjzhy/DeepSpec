@@ -5,7 +5,7 @@ import torch
 from transformers import AutoConfig
 from deepspec.eval.dspark import Gemma4DSparkEvaluator, Qwen3DSparkEvaluator
 from deepspec.eval.eagle3 import Gemma4Eagle3Evaluator, Qwen3Eagle3Evaluator
-from deepspec.utils import CustomJSONEncoder
+from deepspec.utils import CustomJSONEncoder, device_count
 
 EVALUATORS = {
     "Qwen3DSparkModel": Qwen3DSparkEvaluator,
@@ -26,6 +26,8 @@ TASKS = [
     ("alpaca", 500),
     ("arena-hard-v2", 500),
 ]
+TASK_DEFAULTS = dict(TASKS)
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -42,8 +44,29 @@ def parse_args():
     parser.add_argument("--tensorboard-dir", type=str, default=None)
     parser.add_argument("--step", type=int, default=None,help=("step for tensorboard logging"),)
     parser.add_argument("--seed", type=int, default=980406)
+    parser.add_argument(
+        "--task",
+        action="append",
+        default=None,
+        help="Dataset name under eval_datasets without .jsonl. Repeat to run several tasks.",
+    )
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=None,
+        help="Override the sample count for every selected task.",
+    )
     args = parser.parse_args()
-    args.tasks = list(TASKS)
+    task_names = args.task if args.task else [name for name, _ in TASKS]
+    args.tasks = [
+        (
+            name,
+            args.num_samples if args.num_samples is not None else TASK_DEFAULTS.get(name),
+        )
+        for name in task_names
+    ]
+    unknown_defaults = [name for name, max_samples in args.tasks if max_samples is None]
+    assert not unknown_defaults, "--num-samples is required for unknown task(s): " + ", ".join(unknown_defaults)
     return args
 
 
@@ -61,5 +84,5 @@ if __name__ == "__main__":
     torch.multiprocessing.spawn(
         main,
         args=(args,),
-        nprocs=torch.cuda.device_count(),
+        nprocs=device_count(),
     )

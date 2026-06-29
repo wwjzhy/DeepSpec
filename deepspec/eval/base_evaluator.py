@@ -160,8 +160,17 @@ def build_results_table(
             for accept_rate in metrics["accept_rates_by_position"]
         )
         row.extend(["-"] * (max_positions - len(metrics["accept_rates_by_position"])))
-        table.add_row(row)
-    return table.get_string()
+        if table is not None:
+            table.add_row(row)
+        else:
+            fallback_rows.append(row)
+    if table is not None:
+        return table.get_string()
+    lines = []
+    if header:
+        lines.append("\t".join(str(value) for value in field_names))
+    lines.extend("\t".join(str(value) for value in row) for row in fallback_rows)
+    return "\n".join(lines)
 
 
 @dataclass
