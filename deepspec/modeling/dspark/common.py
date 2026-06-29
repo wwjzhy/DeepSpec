@@ -104,7 +104,11 @@ def create_dspark_attention_mask(
             1,
             q_block_ids.squeeze(-1),
         ).unsqueeze(-1)
-        return ((mask_context | mask_draft) & is_valid_block).unsqueeze(1)
+        dense_mask = (mask_context | mask_draft) & is_valid_block
+        empty_rows = ~dense_mask.any(dim=-1, keepdim=True)
+        self_kv_idx = int(seq_len) + q_idx.view(1, -1, 1)
+        dense_mask = dense_mask | (empty_rows & (kv_idx == self_kv_idx))
+        return dense_mask.unsqueeze(1)
 
     def dspark_mask_mod(b, h, q_idx, kv_idx):
         del h

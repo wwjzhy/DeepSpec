@@ -13,6 +13,15 @@ def _npu_module():
         return None
 
 
+def is_npu_available() -> bool:
+    requested = os.environ.get("DEEPSPEC_DEVICE", "").strip().lower()
+    if requested == "cuda":
+        return False
+    if requested == "npu":
+        return _npu_module() is not None
+    return _npu_module() is not None
+
+
 def device_type() -> str:
     requested = os.environ.get("DEEPSPEC_DEVICE", "").strip().lower()
     if requested in {"cuda", "npu"}:

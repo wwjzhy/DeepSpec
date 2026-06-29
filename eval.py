@@ -3,7 +3,17 @@ import argparse
 import json
 import torch
 from transformers import AutoConfig
+from deepspec.eval.dspark import Gemma4DSparkEvaluator, Qwen3DSparkEvaluator
+from deepspec.eval.eagle3 import Gemma4Eagle3Evaluator, Qwen3Eagle3Evaluator
 from deepspec.utils import CustomJSONEncoder, device_count
+
+EVALUATORS = {
+    "Qwen3DSparkModel": Qwen3DSparkEvaluator,
+    "Gemma4DSparkModel": Gemma4DSparkEvaluator,
+    "Qwen3Eagle3Model": Qwen3Eagle3Evaluator,
+    "Gemma4Eagle3Model": Gemma4Eagle3Evaluator,
+    "Eagle3DraftModel": Qwen3Eagle3Evaluator,
+}
 
 TASKS = [
     ("gsm8k", 500),
@@ -18,21 +28,6 @@ TASKS = [
 ]
 TASK_DEFAULTS = dict(TASKS)
 
-
-def get_evaluator_cls(architecture: str):
-    if architecture == "Qwen3DSparkModel":
-        from deepspec.eval.dspark import Qwen3DSparkEvaluator
-        return Qwen3DSparkEvaluator
-    if architecture == "Gemma4DSparkModel":
-        from deepspec.eval.dspark import Gemma4DSparkEvaluator
-        return Gemma4DSparkEvaluator
-    if architecture in {"Qwen3Eagle3Model", "Eagle3DraftModel"}:
-        from deepspec.eval.eagle3 import Qwen3Eagle3Evaluator
-        return Qwen3Eagle3Evaluator
-    if architecture == "Gemma4Eagle3Model":
-        from deepspec.eval.eagle3 import Gemma4Eagle3Evaluator
-        return Gemma4Eagle3Evaluator
-    raise ValueError(f"Unsupported draft architecture: {architecture}")
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -64,9 +59,14 @@ def parse_args():
     args = parser.parse_args()
     task_names = args.task if args.task else [name for name, _ in TASKS]
     args.tasks = [
-        (name, args.num_samples if args.num_samples is not None else TASK_DEFAULTS[name])
+        (
+            name,
+            args.num_samples if args.num_samples is not None else TASK_DEFAULTS.get(name),
+        )
         for name in task_names
     ]
+    unknown_defaults = [name for name, max_samples in args.tasks if max_samples is None]
+    assert not unknown_defaults, "--num-samples is required for unknown task(s): " + ", ".join(unknown_defaults)
     return args
 
 
@@ -74,7 +74,7 @@ def main(local_rank: int, args):
     if local_rank == 0:
         print(json.dumps(args, indent=4, cls=CustomJSONEncoder), flush=True)
     draft_config = AutoConfig.from_pretrained(args.draft_name_or_path)
-    evaluator_cls = get_evaluator_cls(draft_config.architectures[0])
+    evaluator_cls = EVALUATORS[draft_config.architectures[0]]
     evaluator = evaluator_cls(local_rank, args)
     evaluator.evaluate()
     evaluator.clean_up()
