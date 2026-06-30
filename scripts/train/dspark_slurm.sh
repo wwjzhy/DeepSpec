@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=deepspec-dspark
-#SBATCH --output=logs/slurm/%j-dspark.out
-#SBATCH --error=logs/slurm/%j-dspark.err
+#SBATCH --job-name=sft_classifier
+#SBATCH --output=logs/slurm/%j-drafter.out
+#SBATCH --error=logs/slurm/%j-drafter.err
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -18,7 +18,7 @@ TRAIN_SCRIPT="${SCRIPT_DIR}/train.sh"
 # ========================================================
 # 按集群实际情况修改以下变量
 # ========================================================
-CONTAINER_NAME="deepspec_dspark"
+CONTAINER_NAME="deepspec_sft"
 CONTAINER_IMAGE="/lustre/projects/polyullm/container/verl+cu126+0503.sqsh"
 
 # conda 环境：容器内 activate 用的路径（需通过 mount 映射进容器）

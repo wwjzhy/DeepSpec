@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=deepspec-eagle3
-#SBATCH --output=logs/slurm/%j-eagle3.out
-#SBATCH --error=logs/slurm/%j-eagle3.err
+#SBATCH --job-name=sft_classifier
+#SBATCH --output=logs/slurm/%j-drafter.out
+#SBATCH --error=logs/slurm/%j-drafter.err
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -18,7 +18,7 @@ TRAIN_SCRIPT="${SCRIPT_DIR}/train.sh"
 # ========================================================
 # 按集群实际情况修改以下变量
 # ========================================================
-CONTAINER_NAME="deepspec_eagle3"
+CONTAINER_NAME="deepspec_sft"
 CONTAINER_IMAGE="/lustre/projects/polyullm/container/verl+cu126+0503.sqsh"
 
 # conda 环境：容器内 activate 用的路径（需通过 mount 映射进容器）
