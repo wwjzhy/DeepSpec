@@ -1,5 +1,4 @@
-# !/bin/bash
-
+#!/bin/bash
 #SBATCH --job-name=sft_classifier
 #SBATCH --output=logs/slurm/%j-drafter.out
 #SBATCH --error=logs/slurm/%j-drafter.err
