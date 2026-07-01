@@ -11,8 +11,8 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="/lustre/projects/polyullm/wenjun/Spec/DeepSpec/scripts/train"
-WORK_DIR="/lustre/projects/polyullm/wenjun/Spec/DeepSpec"
+SCRIPT_DIR="/lustre/projects/polyullm/wenjun/speculative/DeepSpec/scripts/train"
+WORK_DIR="/lustre/projects/polyullm/wenjun/speculative/DeepSpec"
 
 # ========================================================
 # 按集群实际情况修改以下变量

@@ -7,7 +7,7 @@ exp_name = "dflash_block8_qwen3_4b"
 seed = 42
 
 model = dict(
-    target_model_name_or_path="Qwen/Qwen3-4B",
+    target_model_name_or_path="/work/projects/polyullm/models/Qwen3/Qwen3-4B",
     block_size=7,
     num_draft_layers=5,
     target_layer_ids=[1, 9, 17, 25, 33],

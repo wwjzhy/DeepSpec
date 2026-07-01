@@ -8,7 +8,7 @@ exp_name = "eagle3_ttt7_qwen3_4b"
 seed = 0
 
 model = dict(
-    target_model_name_or_path="Qwen/Qwen3-4B",
+    target_model_name_or_path="/work/projects/polyullm/models/Qwen3/Qwen3-4B",
     target_layer_ids=[1, 9, 17, 25, 33],
     ttt_length=7,
     step_loss_decay=0.8,
