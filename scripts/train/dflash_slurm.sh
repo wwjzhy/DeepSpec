@@ -13,7 +13,6 @@ set -euo pipefail
 
 SCRIPT_DIR="/lustre/projects/polyullm/wenjun/Spec/DeepSpec/scripts/train"
 WORK_DIR="/lustre/projects/polyullm/wenjun/Spec/DeepSpec"
-TRAIN_SCRIPT="${SCRIPT_DIR}/train.sh"
 
 # ========================================================
 # 按集群实际情况修改以下变量
@@ -28,11 +27,6 @@ CONDA_ENV="Dspec"
 # ========================================================
 
 mkdir -p "${WORK_DIR}/logs/slurm"
-
-if [[ ! -f "${TRAIN_SCRIPT}" ]]; then
-    echo "Error: train script not found: ${TRAIN_SCRIPT}"
-    exit 1
-fi
 
 echo "WORK_DIR=${WORK_DIR}"
 echo "CONTAINER_IMAGE=${CONTAINER_IMAGE}"
