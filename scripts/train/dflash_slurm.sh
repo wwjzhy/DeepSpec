@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="/lustre/projects/polyullm/wenjun/Spec/DeepSpec"
+SCRIPT_DIR="/lustre/projects/polyullm/wenjun/Spec/DeepSpec/scripts/train"
 WORK_DIR="${WORK_DIR:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 TRAIN_SCRIPT="${SCRIPT_DIR}/train.sh"
 
